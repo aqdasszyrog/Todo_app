@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { GoogleIcon } from "@/components/icons";
 import { Logo } from "@/components/logo";
 import { signInWithGoogle } from "./actions";
@@ -47,6 +48,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <p className="mt-6 text-xs text-muted">
             New here? Signing in creates your account automatically.
           </p>
+          <Link
+            href="/privacy"
+            className="mt-3 inline-block text-xs text-muted underline underline-offset-2 transition hover:text-fg"
+          >
+            Privacy Policy
+          </Link>
         </div>
       </div>
     </main>
