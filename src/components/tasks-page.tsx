@@ -1,11 +1,12 @@
 import type { Task } from "@/lib/tasks";
 import { AddTaskForm } from "./add-task-form";
 import { AppHeader } from "./app-header";
+import { RealtimeTasks } from "./realtime-tasks";
 import { TaskBoard } from "./task-board";
 
-type Props = { displayName: string; tasks: Task[]; loadFailed?: boolean };
+type Props = { userId: string; displayName: string; tasks: Task[]; loadFailed?: boolean };
 
-export function TasksPage({ displayName, tasks, loadFailed }: Props) {
+export function TasksPage({ userId, displayName, tasks, loadFailed }: Props) {
   const firstName = displayName.split(" ")[0];
   const inProgress = tasks.filter((t) => t.progress === "in_progress").length;
   const open = tasks.filter((t) => t.progress !== "completed").length;
@@ -19,6 +20,7 @@ export function TasksPage({ displayName, tasks, loadFailed }: Props) {
 
   return (
     <div className="flex flex-1 flex-col">
+      <RealtimeTasks userId={userId} taskIds={tasks.map((t) => t.id)} />
       <AppHeader displayName={displayName} />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-8 pb-16 sm:pt-14">
