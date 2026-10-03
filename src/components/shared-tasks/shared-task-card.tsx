@@ -1,13 +1,14 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   deleteSharedTask,
   removeSharedTaskMember,
   updateSharedTask,
 } from "@/actions/shared-tasks";
 import { DueDatePicker } from "@/components/tasks/due-date-picker";
-import { TaskDetailsDialog } from "@/components/tasks/task-details-dialog";
+import { TaskDetailsDialog, type Tab } from "@/components/tasks/task-details-dialog";
 import { PRIORITY_STYLE, PROGRESS_STYLE } from "@/components/tasks/task-styles";
 import { Avatar } from "@/components/ui/avatar";
 import { ChevronDownIcon, SpinnerIcon, TrashIcon, UsersIcon } from "@/components/ui/icons";
@@ -22,6 +23,7 @@ import {
   type TaskChangesInput,
 } from "@/lib/tasks";
 import { SharedTaskMembers } from "./shared-task-members";
+import { TaskChat } from "./task-chat";
 
 type Editable = Pick<Task, "progress" | "priority" | "due_date">;
 
@@ -37,7 +39,46 @@ export function SharedTaskCard({ task, userId, index }: { task: SharedTask; user
   const invitedCount = task.people.length - joined.length;
 
   const [showMembers, setShowMembers] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // The open task and tab live in the URL (?task=12&tab=chat), so
+  // notifications can link straight to a task's chat. History is replaced,
+  // not pushed, so opening and closing the dialog doesn't fill Back.
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const taskParam = searchParams.get("task");
+  const tabParam: Tab = searchParams.get("tab") === "chat" ? "chat" : "details";
+  const linked = taskParam === String(task.id);
+
+  const [detailsOpen, setDetailsOpen] = useState(linked);
+  const [openTab, setOpenTab] = useState<Tab>(linked ? tabParam : "details");
+  // A link followed while this page is already showing (e.g. from the bell)
+  // changes the params without remounting, so open the dialog then too.
+  const [seenParams, setSeenParams] = useState(searchParams.toString());
+  if (searchParams.toString() !== seenParams) {
+    setSeenParams(searchParams.toString());
+    if (linked) {
+      setOpenTab(tabParam);
+      setDetailsOpen(true);
+    }
+  }
+
+  function syncUrl(params: { task: number; tab: Tab } | null) {
+    const query = params
+      ? `?task=${params.task}${params.tab === "chat" ? "&tab=chat" : ""}`
+      : "";
+    window.history.replaceState(null, "", `${pathname}${query}`);
+  }
+
+  function openDetails() {
+    setOpenTab("details");
+    setDetailsOpen(true);
+    syncUrl({ task: task.id, tab: "details" });
+  }
+
+  function closeDetails() {
+    setDetailsOpen(false);
+    syncUrl(null);
+  }
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -75,6 +116,7 @@ export function SharedTaskCard({ task, userId, index }: { task: SharedTask; user
   }
 
   const isDone = optimistic.progress === "completed";
+  const me = task.people.find((p) => p.user_id === userId);
   const ownerLine = isOwner ? "You own this task" : `Shared by ${owner ? personLabel(owner) : "someone"}`;
   const progressStyle = PROGRESS_STYLE[optimistic.progress];
 
@@ -87,7 +129,7 @@ export function SharedTaskCard({ task, userId, index }: { task: SharedTask; user
         <div className="flex items-start gap-3">
           <button
             type="button"
-            onClick={() => setDetailsOpen(true)}
+            onClick={openDetails}
             className="min-w-0 flex-1 rounded-md text-left focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:outline-none"
           >
             <span
@@ -205,7 +247,10 @@ export function SharedTaskCard({ task, userId, index }: { task: SharedTask; user
           canEditDetails={isOwner}
           subtitle={ownerLine}
           onSave={saveDetails}
-          onClose={() => setDetailsOpen(false)}
+          onClose={closeDetails}
+          initialTab={openTab}
+          onTabChange={(tab) => syncUrl({ task: task.id, tab })}
+          chat={<TaskChat taskId={task.id} userId={userId} isOwner={isOwner} myName={me ? personLabel(me) : "You"} />}
         />
       )}
     </li>

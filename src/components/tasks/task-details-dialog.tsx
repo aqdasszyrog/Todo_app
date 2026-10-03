@@ -28,7 +28,14 @@ type Props = {
   /** Saves the changed fields; resolves to an error message, or null on success. */
   onSave: (changes: TaskChangesInput) => Promise<string | null>;
   onClose: () => void;
+  /** Adds a Chat tab with this content (shared tasks). */
+  chat?: React.ReactNode;
+  initialTab?: Tab;
+  /** Called when the user switches tabs, e.g. to keep the URL in sync. */
+  onTabChange?: (tab: Tab) => void;
 };
+
+export type Tab = "details" | "chat";
 
 const PROGRESS_OPTIONS = PROGRESS.map((p) => ({ value: p, label: PROGRESS_LABEL[p] }));
 const PRIORITY_OPTIONS = PRIORITY.map((p) => ({ value: p, label: `${PRIORITY_LABEL[p]} priority` }));
@@ -38,8 +45,21 @@ const fieldClass =
 
 // Mount it only while open: the form starts from the task's current values
 // each time, and closing discards unsaved edits.
-export function TaskDetailsDialog({ task, canEditDetails, subtitle, onSave, onClose }: Props) {
+export function TaskDetailsDialog({
+  task,
+  canEditDetails,
+  subtitle,
+  onSave,
+  onClose,
+  chat,
+  initialTab = "details",
+  onTabChange,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [tab, setTab] = useState<Tab>(chat ? initialTab : "details");
+  // Mount the chat on first visit and keep it mounted, so switching tabs
+  // doesn't reload it, and opening Details alone doesn't mark it as read.
+  const [chatVisited, setChatVisited] = useState(tab === "chat");
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [progress, setProgress] = useState(task.progress);
@@ -64,6 +84,12 @@ export function TaskDetailsDialog({ task, canEditDetails, subtitle, onSave, onCl
   if (progress !== task.progress) changes.progress = progress;
   const dirty = Object.keys(changes).length > 0;
 
+  function selectTab(next: Tab) {
+    setTab(next);
+    if (next === "chat") setChatVisited(true);
+    onTabChange?.(next);
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!dirty) return onClose();
@@ -84,10 +110,10 @@ export function TaskDetailsDialog({ task, canEditDetails, subtitle, onSave, onCl
       // A click on the dialog element itself (not its content) is the backdrop.
       onClick={(e) => e.target === dialogRef.current && onClose()}
       aria-labelledby={`task-${task.id}-title-label`}
-      className="animate-fade-up m-auto w-[min(36rem,calc(100vw-2rem))] max-h-[min(44rem,calc(100dvh-2rem))] overflow-hidden rounded-2xl border border-line-strong bg-[#0d0e14] p-0 text-fg shadow-2xl shadow-black/60 backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      className="animate-fade-up m-auto w-[min(38rem,calc(100vw-2rem))] max-h-[min(46rem,calc(100dvh-2rem))] overflow-hidden rounded-2xl border border-line-strong bg-[#0d0e14] p-0 text-fg shadow-2xl shadow-black/60 backdrop:bg-black/60 backdrop:backdrop-blur-sm"
     >
-      <form onSubmit={handleSubmit} className="flex max-h-[inherit] flex-col">
-        <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+      <div className="flex max-h-[inherit] flex-col">
+        <div className={`flex items-start justify-between gap-3 px-5 py-4 ${chat ? "" : "border-b border-line"}`}>
           <div className="min-w-0">
             <h2 id={`task-${task.id}-title-label`} className="text-base font-semibold">
               Task details
@@ -104,102 +130,144 @@ export function TaskDetailsDialog({ task, canEditDetails, subtitle, onSave, onCl
           </button>
         </div>
 
-        <div className="space-y-5 overflow-y-auto px-5 py-5">
-          <div>
-            <label htmlFor={`task-${task.id}-title`} className="mb-1.5 block text-sm font-medium">
-              Title
-            </label>
-            <input
-              id={`task-${task.id}-title`}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              readOnly={!canEditDetails}
-              maxLength={TITLE_MAX_LENGTH}
-              required
-              autoComplete="off"
-              className={`${fieldClass} h-11 text-base`}
-            />
+        {chat && (
+          <div role="tablist" aria-label="Task sections" className="flex gap-1 border-b border-line px-4">
+            {(["details", "chat"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                id={`task-${task.id}-tab-${key}`}
+                aria-selected={tab === key}
+                aria-controls={`task-${task.id}-panel-${key}`}
+                onClick={() => selectTab(key)}
+                className={`-mb-px border-b-2 px-3 pb-2.5 text-sm font-medium transition ${
+                  tab === key ? "border-violet-400 text-fg" : "border-transparent text-muted hover:text-fg"
+                }`}
+              >
+                {key === "details" ? "Details" : "Chat"}
+              </button>
+            ))}
           </div>
+        )}
 
-          <div>
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <label htmlFor={`task-${task.id}-description`} className="text-sm font-medium">
-                Description
+        {chatVisited && (
+          <div
+            id={`task-${task.id}-panel-chat`}
+            role="tabpanel"
+            aria-labelledby={`task-${task.id}-tab-chat`}
+            hidden={tab !== "chat"}
+            className="h-[min(32rem,calc(100dvh-10rem))]"
+          >
+            {chat}
+          </div>
+        )}
+
+        <form
+          onSubmit={handleSubmit}
+          id={`task-${task.id}-panel-details`}
+          role={chat ? "tabpanel" : undefined}
+          aria-labelledby={chat ? `task-${task.id}-tab-details` : undefined}
+          hidden={tab !== "details"}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="space-y-5 overflow-y-auto px-5 py-5">
+            <div>
+              <label htmlFor={`task-${task.id}-title`} className="mb-1.5 block text-sm font-medium">
+                Title
               </label>
-              {canEditDetails && (
-                <span className="text-xs text-muted tabular-nums">
-                  {description.length}/{DESCRIPTION_MAX_LENGTH}
-                </span>
+              <input
+                id={`task-${task.id}-title`}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                readOnly={!canEditDetails}
+                maxLength={TITLE_MAX_LENGTH}
+                required
+                autoComplete="off"
+                className={`${fieldClass} h-11 text-base`}
+              />
+            </div>
+
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <label htmlFor={`task-${task.id}-description`} className="text-sm font-medium">
+                  Description
+                </label>
+                {canEditDetails && (
+                  <span className="text-xs text-muted tabular-nums">
+                    {description.length}/{DESCRIPTION_MAX_LENGTH}
+                  </span>
+                )}
+              </div>
+              <textarea
+                id={`task-${task.id}-description`}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                readOnly={!canEditDetails}
+                maxLength={DESCRIPTION_MAX_LENGTH}
+                rows={6}
+                placeholder={canEditDetails ? "Add more detail, notes or links…" : "No description."}
+                className={`${fieldClass} resize-y py-2.5 text-sm leading-6`}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <PillSelect
+                id={`task-${task.id}-progress`}
+                label="Progress"
+                value={progress}
+                options={PROGRESS_OPTIONS}
+                onChange={setProgress}
+                disabled={pending}
+                pillClassName={PROGRESS_STYLE[progress].pill}
+                chevronClassName={PROGRESS_STYLE[progress].text}
+              />
+              <PillSelect
+                id={`task-${task.id}-priority`}
+                label="Priority"
+                value={priority}
+                options={PRIORITY_OPTIONS}
+                onChange={setPriority}
+                disabled={pending || !canEditDetails}
+                pillClassName={PRIORITY_STYLE[priority].pill}
+                chevronClassName={PRIORITY_STYLE[priority].text}
+              />
+              {(canEditDetails || dueDate) && (
+                <DueDatePicker
+                  id={`task-${task.id}-due`}
+                  value={dueDate}
+                  onChange={setDueDate}
+                  disabled={pending || !canEditDetails}
+                  muted={progress === "completed"}
+                />
               )}
             </div>
-            <textarea
-              id={`task-${task.id}-description`}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              readOnly={!canEditDetails}
-              maxLength={DESCRIPTION_MAX_LENGTH}
-              rows={6}
-              placeholder={canEditDetails ? "Add more detail, notes or links…" : "No description."}
-              className={`${fieldClass} resize-y py-2.5 text-sm leading-6`}
-            />
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <PillSelect
-              id={`task-${task.id}-progress`}
-              label="Progress"
-              value={progress}
-              options={PROGRESS_OPTIONS}
-              onChange={setProgress}
-              disabled={pending}
-              pillClassName={PROGRESS_STYLE[progress].pill}
-              chevronClassName={PROGRESS_STYLE[progress].text}
-            />
-            <PillSelect
-              id={`task-${task.id}-priority`}
-              label="Priority"
-              value={priority}
-              options={PRIORITY_OPTIONS}
-              onChange={setPriority}
-              disabled={pending || !canEditDetails}
-              pillClassName={PRIORITY_STYLE[priority].pill}
-              chevronClassName={PRIORITY_STYLE[priority].text}
-            />
-            {(canEditDetails || dueDate) && (
-              <DueDatePicker
-                id={`task-${task.id}-due`}
-                value={dueDate}
-                onChange={setDueDate}
-                disabled={pending || !canEditDetails}
-                muted={progress === "completed"}
-              />
+            {!canEditDetails && (
+              <p className="text-xs text-muted">Only the owner can change the title, description, priority and due date.</p>
             )}
           </div>
 
-          {!canEditDetails && (
-            <p className="text-xs text-muted">Only the owner can change the title, description, priority and due date.</p>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3.5">
-          {error && <p className="mr-auto text-sm text-danger">{error}</p>}
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-10 rounded-xl px-4 text-sm font-medium text-muted transition hover:bg-surface-2 hover:text-fg"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={pending || !dirty}
-            className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-          >
-            {pending && <SpinnerIcon />}
-            Save changes
-          </button>
-        </div>
-      </form>
+          <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3.5">
+            {error && <p className="mr-auto text-sm text-danger">{error}</p>}
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 rounded-xl px-4 text-sm font-medium text-muted transition hover:bg-surface-2 hover:text-fg"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={pending || !dirty}
+              className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+            >
+              {pending && <SpinnerIcon />}
+              Save changes
+            </button>
+          </div>
+        </form>
+      </div>
     </dialog>
   );
 }

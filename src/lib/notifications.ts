@@ -1,5 +1,5 @@
 // Must match the `notification_type` enum in supabase/migrations/007_shared_tasks.sql
-export type NotificationType = "task_invite" | "invite_accepted" | "invite_declined";
+export type NotificationType = "task_invite" | "invite_accepted" | "invite_declined" | "task_comment";
 
 export type AppNotification = {
   id: number;
@@ -7,6 +7,10 @@ export type AppNotification = {
   actor_name: string | null;
   task_title: string | null;
   shared_task_id: number | null;
+  /** Chat: start of the latest message (null if it was deleted). */
+  preview: string | null;
+  /** Chat: how many messages this notification stands for. */
+  comment_count: number;
   read_at: string | null;
   created_at: string;
   /**

@@ -1,3 +1,4 @@
+import { COMMENT_MAX_LENGTH } from "./comments";
 import {
   DESCRIPTION_MAX_LENGTH,
   isDueDate,
@@ -47,6 +48,15 @@ export function validatePriority(priority: unknown): Priority | Invalid {
 export function validateDueDate(dueDate: unknown): string | null | Invalid {
   if (dueDate === null || dueDate === "" || dueDate === undefined) return null;
   return isDueDate(dueDate) ? dueDate : { error: "Pick a valid due date." };
+}
+
+export function validateCommentBody(body: unknown): string | Invalid {
+  const value = typeof body === "string" ? body.trim() : "";
+  if (!value) return { error: "Message can't be empty." };
+  if (value.length > COMMENT_MAX_LENGTH) {
+    return { error: `Keep messages under ${COMMENT_MAX_LENGTH} characters.` };
+  }
+  return value;
 }
 
 export const EMAIL_MAX_LENGTH = 254;

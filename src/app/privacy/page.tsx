@@ -43,8 +43,9 @@ export default function PrivacyPage() {
                 change or remove at any time from your Profile page.
               </li>
               <li>
-                <strong>Content you create:</strong> the tasks you add, their progress status, and
-                when they were created or updated.
+                <strong>Content you create:</strong> the tasks you add (including descriptions),
+                their progress status, when they were created or updated, and messages you send in
+                shared-task chats.
               </li>
               <li>
                 <strong>Session cookies:</strong> small cookies that keep you signed in. We do not
@@ -77,6 +78,12 @@ export default function PrivacyPage() {
               <li>
                 Only the owner and the people who accepted an invite can see a shared task. You can
                 decline an invite or leave a shared task at any time.
+              </li>
+              <li>
+                Chat messages on a shared task, and the notifications about them, are visible only
+                to its owner and the people who accepted. Anyone who leaves or is removed loses
+                access to the chat straight away. You can delete your own messages; the task owner
+                can delete any message on their task.
               </li>
             </ul>
           </section>

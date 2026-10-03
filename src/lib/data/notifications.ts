@@ -9,7 +9,7 @@ export async function getNotifications(userId: string) {
   const [list, unread] = await Promise.all([
     supabase
       .from("notifications")
-      .select("id, type, actor_name, task_title, shared_task_id, read_at, created_at")
+      .select("id, type, actor_name, task_title, shared_task_id, preview, comment_count, read_at, created_at")
       .order("created_at", { ascending: false })
       .limit(NOTIFICATIONS_LIMIT)
       .overrideTypes<Omit<AppNotification, "invite_status">[], { merge: false }>(),

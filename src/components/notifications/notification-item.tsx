@@ -19,7 +19,13 @@ const VERB: Record<AppNotification["type"], string> = {
   task_invite: "invited you to join",
   invite_accepted: "accepted your invite to",
   invite_declined: "declined your invite to",
+  task_comment: "sent a message in",
 };
+
+function verbFor(n: AppNotification) {
+  if (n.type === "task_comment" && n.comment_count > 1) return `sent ${n.comment_count} messages in`;
+  return VERB[n.type];
+}
 
 export function NotificationItem({ notification: n, highlighted, onNavigate }: Props) {
   const [pending, startTransition] = useTransition();
@@ -27,6 +33,7 @@ export function NotificationItem({ notification: n, highlighted, onNavigate }: P
   const [error, setError] = useState<string | null>(null);
 
   const actor = n.actor_name ?? "Someone";
+  const taskHref = n.shared_task_id ? `/shared?task=${n.shared_task_id}` : "/shared";
 
   function respond(accept: boolean) {
     setError(null);
@@ -46,9 +53,14 @@ export function NotificationItem({ notification: n, highlighted, onNavigate }: P
 
       <div className="min-w-0 flex-1 text-sm">
         <p className="leading-5 text-fg/90">
-          <span className="font-semibold text-fg">{actor}</span> {VERB[n.type]}{" "}
+          <span className="font-semibold text-fg">{actor}</span> {verbFor(n)}{" "}
           <span className="font-semibold text-fg">&ldquo;{n.task_title ?? "a task"}&rdquo;</span>
         </p>
+        {n.type === "task_comment" && n.preview && (
+          <p className="mt-1 line-clamp-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs leading-5 break-words text-fg/80">
+            {n.preview}
+          </p>
+        )}
         <p className="mt-0.5 text-xs text-muted">{timeAgo(n.created_at)}</p>
 
         {n.type === "task_invite" && (
@@ -77,7 +89,7 @@ export function NotificationItem({ notification: n, highlighted, onNavigate }: P
             ) : n.invite_status === "accepted" ? (
               <p className="text-xs text-emerald-300">
                 You joined this task ·{" "}
-                <Link href="/shared" onClick={onNavigate} className="underline underline-offset-2">
+                <Link href={taskHref} onClick={onNavigate} className="underline underline-offset-2">
                   Open shared tasks
                 </Link>
               </p>
@@ -89,9 +101,19 @@ export function NotificationItem({ notification: n, highlighted, onNavigate }: P
           </div>
         )}
 
+        {n.type === "task_comment" && n.shared_task_id && (
+          <Link
+            href={`/shared?task=${n.shared_task_id}&tab=chat`}
+            onClick={onNavigate}
+            className="mt-1 inline-block text-xs text-violet-300 underline underline-offset-2"
+          >
+            Open chat
+          </Link>
+        )}
+
         {n.type === "invite_accepted" && (
           <Link
-            href="/shared"
+            href={taskHref}
             onClick={onNavigate}
             className="mt-1 inline-block text-xs text-violet-300 underline underline-offset-2"
           >
