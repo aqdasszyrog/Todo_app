@@ -42,3 +42,22 @@ export function formatDueDate(dueDate: string, today: string | null) {
     timeZone: "UTC",
   });
 }
+
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 365 * DAY_MS],
+  ["month", 30 * DAY_MS],
+  ["week", 7 * DAY_MS],
+  ["day", DAY_MS],
+  ["hour", 60 * 60 * 1000],
+  ["minute", 60 * 1000],
+];
+
+/** "just now", "5 minutes ago", "yesterday"… Call it on the client only. */
+export function timeAgo(iso: string, now = Date.now()) {
+  const elapsed = Date.parse(iso) - now;
+  const format = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  for (const [unit, ms] of RELATIVE_UNITS) {
+    if (Math.abs(elapsed) >= ms) return format.format(Math.round(elapsed / ms), unit);
+  }
+  return "just now";
+}

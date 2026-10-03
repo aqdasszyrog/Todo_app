@@ -9,13 +9,14 @@ import {
   PRIORITY_LABEL,
   PROGRESS,
   PROGRESS_LABEL,
-  TITLE_MAX_LENGTH,
   type Task,
+  type TaskChangesInput,
 } from "@/lib/tasks";
 import { DueDatePicker } from "./due-date-picker";
+import { TaskDetailsDialog } from "./task-details-dialog";
 import { PRIORITY_STYLE, PROGRESS_STYLE } from "./task-styles";
 
-type EditableFields = Pick<Task, "title" | "progress" | "priority" | "due_date">;
+type EditableFields = Pick<Task, "progress" | "priority" | "due_date">;
 
 const PROGRESS_OPTIONS = PROGRESS.map((p) => ({ value: p, label: PROGRESS_LABEL[p] }));
 const PRIORITY_OPTIONS = PRIORITY.map((p) => ({ value: p, label: `${PRIORITY_LABEL[p]} priority` }));
@@ -24,8 +25,7 @@ const iconButton =
   "grid size-9 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-fg active:scale-90 disabled:opacity-40";
 
 export function TaskItem({ task, index }: { task: Task; index: number }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(task.title);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,6 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
   // Show the change instantly; React reverts it if the server action fails.
   const [optimistic, setOptimistic] = useOptimistic(
     {
-      title: task.title,
       progress: task.progress,
       priority: task.priority,
       due_date: task.due_date,
@@ -53,7 +52,7 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
     });
   }
 
-  function change(fields: Partial<Omit<EditableFields, "title">>) {
+  function change(fields: Partial<EditableFields>) {
     run(async () => {
       setOptimistic(fields);
       const { due_date, ...rest } = fields;
@@ -61,25 +60,10 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
     });
   }
 
-  function startEditing() {
-    setDraft(optimistic.title);
-    setConfirmingDelete(false);
-    setEditing(true);
-  }
-
-  function saveTitle() {
-    const title = draft.trim();
-    if (!title) return setError("Task title can't be empty.");
-    setEditing(false);
-    if (title === task.title) return;
-
-    run(
-      async () => {
-        setOptimistic({ title });
-        return updateTask(task.id, { title });
-      },
-      () => setEditing(true),
-    );
+  // The dialog shows its own pending state and closes once the save lands.
+  async function saveDetails(changes: TaskChangesInput) {
+    const result = await updateTask(task.id, changes);
+    return result.error ?? null;
   }
 
   function remove() {
@@ -102,7 +86,7 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
         {/* Round toggle: completed ↔ incomplete */}
         <button
           onClick={() => change({ progress: isDone ? "incomplete" : "completed" })}
-          disabled={pending || editing}
+          disabled={pending}
           aria-label={isDone ? "Mark as incomplete" : "Mark as completed"}
           className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 transition-all duration-200 ${style.ring}`}
         >
@@ -115,34 +99,22 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
         </button>
 
         <div className="min-w-0 flex-1">
-          {editing ? (
-            <>
-              <label htmlFor={`edit-${task.id}`} className="sr-only">
-                Edit task title
-              </label>
-              <input
-                id={`edit-${task.id}`}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") saveTitle();
-                  if (e.key === "Escape") setEditing(false);
-                }}
-                maxLength={TITLE_MAX_LENGTH}
-                autoFocus
-                className="w-full rounded-lg border border-violet-500/60 bg-black/30 px-3 py-1.5 text-base text-fg ring-4 ring-violet-500/10 focus:outline-none"
-              />
-            </>
-          ) : (
-            <p
-              onDoubleClick={startEditing}
-              className={`break-words leading-6 transition-colors duration-300 ${
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(true)}
+            className="block w-full rounded-md text-left focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:outline-none"
+          >
+            <span
+              className={`block break-words leading-6 transition-colors duration-300 ${
                 isDone ? "text-muted line-through decoration-muted/60" : "text-fg"
               }`}
             >
-              {optimistic.title}
-            </p>
-          )}
+              {task.title}
+            </span>
+            {task.description && (
+              <span className="mt-0.5 line-clamp-1 block text-sm text-muted">{task.description}</span>
+            )}
+          </button>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             <PillSelect
@@ -190,21 +162,12 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
         {/* Actions: always visible on touch screens, on hover/focus on desktop */}
         <div
           className={`flex shrink-0 items-center gap-0.5 transition-opacity duration-200 ${
-            editing || confirmingDelete
+            confirmingDelete
               ? ""
               : "sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100"
           }`}
         >
-          {editing ? (
-            <>
-              <button onClick={saveTitle} className={`${iconButton} text-emerald-300`} aria-label="Save">
-                <CheckIcon />
-              </button>
-              <button onClick={() => setEditing(false)} className={iconButton} aria-label="Cancel editing">
-                <XIcon />
-              </button>
-            </>
-          ) : confirmingDelete ? (
+          {confirmingDelete ? (
             <div className="animate-fade-up flex items-center gap-1">
               <button
                 onClick={remove}
@@ -222,7 +185,12 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
             </div>
           ) : (
             <>
-              <button onClick={startEditing} disabled={pending} className={iconButton} aria-label="Edit task">
+              <button
+                onClick={() => setDetailsOpen(true)}
+                className={iconButton}
+                aria-label="Open task details"
+                title="Details"
+              >
                 <PencilIcon />
               </button>
               <button
@@ -239,6 +207,15 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
       </div>
 
       {error && <p className="animate-fade-up px-4 pb-3 pl-12 text-sm text-danger sm:pl-14">{error}</p>}
+
+      {detailsOpen && (
+        <TaskDetailsDialog
+          task={{ ...task, ...optimistic }}
+          canEditDetails
+          onSave={saveDetails}
+          onClose={() => setDetailsOpen(false)}
+        />
+      )}
     </li>
   );
 }

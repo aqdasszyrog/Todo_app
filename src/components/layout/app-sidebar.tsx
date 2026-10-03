@@ -2,12 +2,20 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { DashboardIcon, LogoutIcon, SpinnerIcon, UserIcon, XIcon } from "@/components/ui/icons";
+import {
+  DashboardIcon,
+  LogoutIcon,
+  SpinnerIcon,
+  UserIcon,
+  UsersIcon,
+  XIcon,
+} from "@/components/ui/icons";
 import { Logo } from "@/components/ui/logo";
 import { useSidebar } from "./sidebar-provider";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", Icon: DashboardIcon },
+  { href: "/shared", label: "Shared tasks", Icon: UsersIcon },
   { href: "/profile", label: "Profile", Icon: UserIcon },
 ] as const;
 

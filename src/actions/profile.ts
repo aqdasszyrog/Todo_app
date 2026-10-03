@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { NAME_MAX_LENGTH } from "@/lib/profile";
-import { createClient } from "@/lib/supabase/server";
-
-type ActionResult = { error?: string };
+import { getAuthedClient, SIGNED_OUT, type ActionResult } from "@/lib/actions";
+import { logError } from "@/lib/log";
 
 // Digits plus the usual separators, optionally starting with "+".
 const PHONE_PATTERN = /^\+?[0-9 ()\-.]+$/;
@@ -12,9 +11,9 @@ const PHONE_PATTERN = /^\+?[0-9 ()\-.]+$/;
 // Like the task actions, this checks the session and validates input itself;
 // RLS makes sure only the caller's own profile row can be updated.
 export async function updateProfile(input: { name: string; phone: string }): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  if (!claims?.claims) return { error: "You're signed out. Please log in again." };
+  const session = await getAuthedClient();
+  if (!session) return SIGNED_OUT;
+  const { supabase, userId } = session;
 
   const name = typeof input.name === "string" ? input.name.trim() : "";
   if (!name) return { error: "Name can't be empty." };
@@ -31,17 +30,17 @@ export async function updateProfile(input: { name: string; phone: string }): Pro
   const { data, error } = await supabase
     .from("profiles")
     .update({ name, phone: phone || null })
-    .eq("id", claims.claims.sub)
+    .eq("id", userId)
     .select("id");
 
   if (error) {
-    console.error("updateProfile failed:", error);
+    logError("updateProfile failed", error);
     return { error: "Couldn't save your profile. Try again." };
   }
   // RLS turns a blocked update into "0 rows changed" rather than an error,
   // so without this check the form would say "Saved" when nothing was.
   if (!data?.length) {
-    console.error("updateProfile matched no rows for user", claims.claims.sub);
+    console.error("updateProfile matched no rows for user", userId);
     return { error: "Couldn't save your profile. Try again." };
   }
 

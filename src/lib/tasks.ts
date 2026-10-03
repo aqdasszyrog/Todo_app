@@ -23,10 +23,12 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
 export const DEFAULT_PRIORITY: Priority = "medium";
 
 export const TITLE_MAX_LENGTH = 500;
+export const DESCRIPTION_MAX_LENGTH = 5000;
 
 export type Task = {
   id: number;
   title: string;
+  description: string | null;
   progress: Progress;
   priority: Priority;
   /** Calendar date as "YYYY-MM-DD", or null when there's no deadline. */
@@ -37,7 +39,17 @@ export type Task = {
 
 export type TaskSummary = Record<Progress, number>;
 
-export const TASK_COLUMNS = "id, title, progress, priority, due_date, created_at, updated_at";
+export const TASK_COLUMNS =
+  "id, title, description, progress, priority, due_date, created_at, updated_at";
+
+/** Changes a user can make to a task (personal or shared), as sent to the Server Actions. */
+export type TaskChangesInput = {
+  title?: string;
+  description?: string | null;
+  progress?: Progress;
+  priority?: Priority;
+  dueDate?: string | null;
+};
 
 export function isProgress(value: unknown): value is Progress {
   return PROGRESS.includes(value as Progress);

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 // Shown to users as the way to reach you about their data.
 const CONTACT_EMAIL = "aqdassafwan15@gmail.com";
-const LAST_UPDATED = "3 October 2026";
+const LAST_UPDATED = "4 October 2026";
 
 export default function PrivacyPage() {
   return (
@@ -60,6 +60,25 @@ export default function PrivacyPage() {
               and display your own tasks. We do not sell your data, share it with advertisers, or
               use it for any other purpose.
             </p>
+          </section>
+
+          <section>
+            <h2>Shared tasks</h2>
+            <ul>
+              <li>
+                When you share a task, the people on it can see your name and email address, and
+                you can see theirs. Your phone number is never shown to anyone else.
+              </li>
+              <li>
+                Other signed-in users can invite you by typing your exact email address. This lets
+                them find out whether that address has an account, but there is no list or search
+                of users.
+              </li>
+              <li>
+                Only the owner and the people who accepted an invite can see a shared task. You can
+                decline an invite or leave a shared task at any time.
+              </li>
+            </ul>
           </section>
 
           <section>
