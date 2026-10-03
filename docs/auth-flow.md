@@ -87,7 +87,7 @@ Postgres rules attached to a table. Every query runs as the logged-in user, and 
 ```
 
 ### ① User clicks "Continue with Google"
-[src/app/login/page.tsx](../src/app/login/page.tsx) renders a `<form>` whose action is the server action `signInWithGoogle` in [src/app/login/actions.ts](../src/app/login/actions.ts):
+[src/app/login/page.tsx](../src/app/login/page.tsx) renders a `<form>` whose action is the server action `signInWithGoogle` in [src/actions/auth.ts](../src/actions/auth.ts):
 
 ```ts
 const { data } = await supabase.auth.signInWithOAuth({
@@ -121,11 +121,11 @@ return NextResponse.redirect(`${origin}/`);
 The server sends the `code` plus the PKCE verifier (from the cookie) to Supabase and gets back the **access token and refresh token**. The server Supabase client ([src/lib/supabase/server.ts](../src/lib/supabase/server.ts)) writes them into the `sb-...-auth-token` cookie through its `setAll` function. The user is now logged in.
 
 ### ⑤ Home page loads
-The browser follows the redirect to `/`, sending the new cookie. The proxy lets the request through (see section 4), and [src/app/page.tsx](../src/app/page.tsx) reads the user's profile:
+The browser follows the redirect to `/`, sending the new cookie. The proxy lets the request through (see section 4), and the signed-in layout reads the user's profile through `getCurrentUser` in [src/lib/data/current-user.ts](../src/lib/data/current-user.ts):
 
 ```ts
 const { data: claims } = await supabase.auth.getClaims();   // who is this?
-await supabase.from("profiles").select("name, email").eq("id", claims.claims.sub).single();
+await supabase.from("profiles").select("name, email, phone, created_at").eq("id", claims.claims.sub).single();
 ```
 
 The Supabase client sends the access token with that query, so Postgres knows who is asking and the RLS policy on `profiles` allows the user to read **only their own row**.
@@ -150,7 +150,7 @@ The Supabase client sends the access token with that query, so Postgres knows wh
 
 ## 5. Signing out
 
-The "Sign out" button in [src/app/page.tsx](../src/app/page.tsx) is a plain form that POSTs to [src/app/auth/signout/route.ts](../src/app/auth/signout/route.ts):
+The "Sign out" button in the sidebar ([src/components/layout/app-sidebar.tsx](../src/components/layout/app-sidebar.tsx)) is a plain form that POSTs to [src/app/auth/signout/route.ts](../src/app/auth/signout/route.ts):
 
 ```ts
 await supabase.auth.signOut();   // revokes the refresh token at Supabase and clears the cookies
@@ -170,7 +170,7 @@ It is a **POST**, not a link (GET), so that another website can't log users out 
 | [src/lib/supabase/proxy.ts](../src/lib/supabase/proxy.ts) | `updateSession`: verify, refresh, redirect. |
 | [src/proxy.ts](../src/proxy.ts) | Runs `updateSession` on every request. |
 | [src/app/login/page.tsx](../src/app/login/page.tsx) | Login page with the Google button. |
-| [src/app/login/actions.ts](../src/app/login/actions.ts) | Server action that starts the OAuth flow. |
+| [src/actions/auth.ts](../src/actions/auth.ts) | Server action that starts the OAuth flow. |
 | [src/app/auth/callback/route.ts](../src/app/auth/callback/route.ts) | Swaps the one-time `code` for a session. |
 | [src/app/auth/signout/route.ts](../src/app/auth/signout/route.ts) | Ends the session. |
 | [supabase/migrations/001_profiles.sql](../supabase/migrations/001_profiles.sql) | `profiles` table, its RLS policies and the auto-create trigger. |

@@ -1,4 +1,4 @@
-import { CheckIcon } from "./icons";
+import { CheckIcon } from "@/components/ui/icons";
 
 export function Logo({ size = "sm" }: { size?: "sm" | "lg" }) {
   const box = size === "lg" ? "size-12 rounded-2xl" : "size-8 rounded-xl";

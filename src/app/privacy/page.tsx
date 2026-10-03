@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/logo";
+import { Logo } from "@/components/ui/logo";
 
 export const metadata: Metadata = {
   title: "Privacy Policy · Todo",
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 // Shown to users as the way to reach you about their data.
 const CONTACT_EMAIL = "aqdassafwan15@gmail.com";
-const LAST_UPDATED = "26 September 2026";
+const LAST_UPDATED = "3 October 2026";
 
 export default function PrivacyPage() {
   return (
@@ -39,6 +39,10 @@ export default function PrivacyPage() {
                 We never see or store your Google password.
               </li>
               <li>
+                <strong>Profile details you add:</strong> an optional phone number, which you can
+                change or remove at any time from your Profile page.
+              </li>
+              <li>
                 <strong>Content you create:</strong> the tasks you add, their progress status, and
                 when they were created or updated.
               </li>
@@ -52,7 +56,7 @@ export default function PrivacyPage() {
           <section>
             <h2>How we use it</h2>
             <p>
-              Your information is used only to sign you in, show your name in the app, and store
+              Your information is used only to sign you in, show your name and profile details in the app, and store
               and display your own tasks. We do not sell your data, share it with advertisers, or
               use it for any other purpose.
             </p>

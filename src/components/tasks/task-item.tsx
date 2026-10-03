@@ -1,23 +1,24 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { deleteTask, updateTask } from "@/app/tasks/actions";
+import { deleteTask, updateTask } from "@/actions/tasks";
+import { CheckIcon, PencilIcon, SpinnerIcon, TrashIcon, XIcon } from "@/components/ui/icons";
+import { PillSelect } from "@/components/ui/pill-select";
 import {
+  PRIORITY,
+  PRIORITY_LABEL,
   PROGRESS,
   PROGRESS_LABEL,
   TITLE_MAX_LENGTH,
-  type Progress,
   type Task,
 } from "@/lib/tasks";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  PencilIcon,
-  SpinnerIcon,
-  TrashIcon,
-  XIcon,
-} from "./icons";
-import { PROGRESS_STYLE } from "./progress-badge";
+import { DueDatePicker } from "./due-date-picker";
+import { PRIORITY_STYLE, PROGRESS_STYLE } from "./task-styles";
+
+type EditableFields = Pick<Task, "title" | "progress" | "priority" | "due_date">;
+
+const PROGRESS_OPTIONS = PROGRESS.map((p) => ({ value: p, label: PROGRESS_LABEL[p] }));
+const PRIORITY_OPTIONS = PRIORITY.map((p) => ({ value: p, label: `${PRIORITY_LABEL[p]} priority` }));
 
 const iconButton =
   "grid size-9 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-fg active:scale-90 disabled:opacity-40";
@@ -32,11 +33,13 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
 
   // Show the change instantly; React reverts it if the server action fails.
   const [optimistic, setOptimistic] = useOptimistic(
-    { title: task.title, progress: task.progress },
-    (current, change: Partial<Pick<Task, "title" | "progress">>) => ({
-      ...current,
-      ...change,
-    }),
+    {
+      title: task.title,
+      progress: task.progress,
+      priority: task.priority,
+      due_date: task.due_date,
+    } satisfies EditableFields,
+    (current, change: Partial<EditableFields>) => ({ ...current, ...change }),
   );
 
   function run(action: () => Promise<{ error?: string }>, onError?: () => void) {
@@ -50,10 +53,11 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
     });
   }
 
-  function changeProgress(progress: Progress) {
+  function change(fields: Partial<Omit<EditableFields, "title">>) {
     run(async () => {
-      setOptimistic({ progress });
-      return updateTask(task.id, { progress });
+      setOptimistic(fields);
+      const { due_date, ...rest } = fields;
+      return updateTask(task.id, due_date === undefined ? rest : { ...rest, dueDate: due_date });
     });
   }
 
@@ -97,7 +101,7 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
       <div className="flex items-start gap-3 p-3 sm:gap-4 sm:p-4">
         {/* Round toggle: completed ↔ incomplete */}
         <button
-          onClick={() => changeProgress(isDone ? "incomplete" : "completed")}
+          onClick={() => change({ progress: isDone ? "incomplete" : "completed" })}
           disabled={pending || editing}
           aria-label={isDone ? "Mark as incomplete" : "Mark as completed"}
           className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 transition-all duration-200 ${style.ring}`}
@@ -141,32 +145,39 @@ export function TaskItem({ task, index }: { task: Task; index: number }) {
           )}
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="relative">
-              <label htmlFor={`progress-${task.id}`} className="sr-only">
-                Progress
-              </label>
-              <select
-                id={`progress-${task.id}`}
-                value={optimistic.progress}
-                onChange={(e) => changeProgress(e.target.value as Progress)}
-                disabled={pending}
-                className={`cursor-pointer appearance-none rounded-full py-1 pr-7 pl-2.5 text-xs font-medium ring-1 ring-inset transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 ${style.pill}`}
-              >
-                {PROGRESS.map((p) => (
-                  <option key={p} value={p}>
-                    {PROGRESS_LABEL[p]}
-                  </option>
-                ))}
-              </select>
-              <ChevronDownIcon
-                className={`pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 ${style.text}`}
-              />
-            </div>
+            <PillSelect
+              id={`progress-${task.id}`}
+              label="Progress"
+              value={optimistic.progress}
+              options={PROGRESS_OPTIONS}
+              onChange={(progress) => change({ progress })}
+              disabled={pending}
+              pillClassName={style.pill}
+              chevronClassName={style.text}
+            />
+            <PillSelect
+              id={`priority-${task.id}`}
+              label="Priority"
+              value={optimistic.priority}
+              options={PRIORITY_OPTIONS}
+              onChange={(priority) => change({ priority })}
+              disabled={pending}
+              pillClassName={PRIORITY_STYLE[optimistic.priority].pill}
+              chevronClassName={PRIORITY_STYLE[optimistic.priority].text}
+            />
+            <DueDatePicker
+              id={`due-${task.id}`}
+              value={optimistic.due_date}
+              onChange={(due_date) => change({ due_date })}
+              disabled={pending}
+              muted={isDone}
+            />
             <time
               dateTime={task.created_at}
               className="text-xs text-muted"
               suppressHydrationWarning
             >
+              Added{" "}
               {new Date(task.created_at).toLocaleDateString(undefined, {
                 day: "numeric",
                 month: "short",

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { GoogleIcon } from "@/components/icons";
-import { Logo } from "@/components/logo";
-import { signInWithGoogle } from "./actions";
+import { GoogleIcon } from "@/components/ui/icons";
+import { Logo } from "@/components/ui/logo";
+import { signInWithGoogle } from "@/actions/auth";
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { error } = await searchParams;
