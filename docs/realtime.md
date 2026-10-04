@@ -39,7 +39,31 @@ When something changes (a shared task is edited, a chat message is sent, an invi
 
 Event names and payload types are defined once in [src/lib/realtime.ts](../src/lib/realtime.ts) and must match the migration.
 
-## 3. Why Broadcast and not `postgres_changes`
+## 3. Typing indicators (`chat:<task id>`)
+
+"Is typing…" is the one thing that isn't sent by the database. It's ephemeral, so it never touches a table:
+
+```
+ keystroke ──► TypingSender (throttle) ──► channel.send() over the WebSocket
+                                                  │  private topic chat:<task id>
+                                                  ▼
+                        other open chats: TypingRoster ──► "Ann is typing…"
+```
+
+- The chat joins its own private channel, `chat:<task id>`, **only while it's open** ([use-typing.ts](../src/hooks/use-typing.ts)). It shares the tab's one WebSocket, so it adds a channel, not a connection, and only people looking at that chat receive anything.
+- **Who may join** is checked by the `realtime.messages` policies in [012_chat_typing.sql](../supabase/migrations/012_chat_typing.sql) (owner or accepted member). Realtime checks them once when a client joins and caches the result, so typing causes no database queries.
+- **Throttled heartbeat.** While someone types, `typing` is sent at most once every 3 s, however fast they type. `stop` is sent when the draft is sent, cleared or blurred, or the chat closes.
+- **Self-healing.** Receivers drop a typist after 6 s without a heartbeat, so a closed laptop or lost `stop` can't leave someone "typing" forever. A typist is also dropped as soon as their message arrives, and the list is cleared on reconnect.
+- **Never over HTTP.** Sends are skipped unless the channel is joined. Otherwise `channel.send()` would quietly fall back to a REST request per call.
+
+| Event | Payload |
+|---|---|
+| `typing` | `{ user_id, name }` |
+| `stop` | `{ user_id }` |
+
+The timing rules live in [src/lib/typing.ts](../src/lib/typing.ts). Payloads come from other members' browsers, so they're checked and the name is capped. A member could fake another member's typing, but nothing else, and only inside a chat they already belong to.
+
+## 4. Why Broadcast and not `postgres_changes`
 
 The app used to subscribe to whole tables with `postgres_changes`. That has three costs that grow with users:
 
@@ -51,7 +75,7 @@ With Broadcast, the trigger works out the recipients **once, at write time**, an
 
 **Fan-out is bounded.** A chat message is sent once per person on the task, and a task can have at most 50 people (`MAX_MEMBERS`, enforced in `invite_to_shared_task()`).
 
-## 4. Consistency rules
+## 5. Consistency rules
 
 - **Messages are transactional.** `realtime.send` writes inside the same transaction as the change. If the change rolls back, nothing is sent.
 - **Actions update the acting tab directly.** Server Actions return the changed row, which is applied immediately, so the UI doesn't wait for the broadcast. The broadcast that follows is idempotent: lists merge by id, and a task update with an older `updated_at` is ignored.
@@ -59,7 +83,7 @@ With Broadcast, the trigger works out the recipients **once, at write time**, an
 - **Reconnects resync.** If the connection drops (sleep, network), `resync` makes each listener reload its data.
 - **Removed members stop receiving immediately**, because recipients are worked out per message, not per connection.
 
-## 5. Adding a new live feature (e.g. a chatbot)
+## 6. Adding a new live feature (e.g. a chatbot)
 
 1. In a migration, add a trigger (or call `realtime.send` from an RPC) that sends `'your_event'` to `'user:' || <recipient id>`.
 2. Add the payload type to `RealtimeEvents` in `src/lib/realtime.ts`.

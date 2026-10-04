@@ -6,8 +6,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { SpinnerIcon, TrashIcon } from "@/components/ui/icons";
 import { useRealtimeEvent } from "@/hooks/use-realtime";
 import { useTaskComments } from "@/hooks/use-task-comments";
+import { useTyping } from "@/hooks/use-typing";
 import { COMMENT_MAX_LENGTH, type TaskComment } from "@/lib/comments";
 import { localDateString } from "@/lib/dates";
+import { typingLabel, type Typist } from "@/lib/typing";
 
 type Props = {
   taskId: number;
@@ -36,9 +38,35 @@ function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
+// Three bouncing dots in a bubble, like the other person's messages.
+function TypingIndicator({ typists }: { typists: Typist[] }) {
+  const label = typingLabel(typists);
+  return (
+    <div aria-hidden className="mt-3 flex animate-fade-in items-end gap-2.5">
+      <div className="w-7 shrink-0">
+        <Avatar name={typists[0].name} size="sm" />
+      </div>
+      <div className="flex min-w-0 flex-col items-start">
+        <p className="mb-1 truncate px-1 text-xs text-muted">{label}</p>
+        <span className="flex h-9 items-center gap-1 rounded-2xl rounded-tl-md bg-surface-2 px-3.5 ring-1 ring-line"
+        >
+          {[0, 150, 300].map((delay) => (
+            <span
+              key={delay}
+              className="size-1.5 animate-typing-dot rounded-full bg-muted"
+              style={{ animationDelay: `${delay}ms` }}
+            />
+          ))}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function TaskChat({ taskId, userId, isOwner, myName }: Props) {
   const { comments, loading, error, hasMore, loadingMore, loadEarlier, addLocal, removeLocal } =
     useTaskComments(taskId);
+  const { typists, onDraftChange, stopTyping } = useTyping(taskId, userId, myName);
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
@@ -60,7 +88,7 @@ export function TaskChat({ taskId, userId, isOwner, myName }: Props) {
     } else if (stickToBottom.current) {
       list.scrollTop = list.scrollHeight;
     }
-  }, [comments]);
+  }, [comments, typists]);
 
   // Viewing the chat counts as reading its notifications: on opening, and
   // whenever a message arriving while it's open creates or bumps one.
@@ -79,6 +107,7 @@ export function TaskChat({ taskId, userId, isOwner, myName }: Props) {
     if (!body || sending) return;
     setSendError(null);
     stickToBottom.current = true;
+    stopTyping();
     startSending(async () => {
       const result = await postComment(taskId, body);
       if (result.error || !result.comment) {
@@ -223,8 +252,14 @@ export function TaskChat({ taskId, userId, isOwner, myName }: Props) {
             </ol>
           </>
         )}
+        {typists.length > 0 && <TypingIndicator typists={typists} />}
         {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
       </div>
+
+      {/* Announced separately: the log above is aria-live for messages. */}
+      <p role="status" className="sr-only">
+        {typingLabel(typists)}
+      </p>
 
       <form
         onSubmit={(e) => {
@@ -243,7 +278,9 @@ export function TaskChat({ taskId, userId, isOwner, myName }: Props) {
             onChange={(e) => {
               setDraft(e.target.value);
               setSendError(null);
+              onDraftChange(e.target.value);
             }}
+            onBlur={stopTyping}
             onKeyDown={(e) => {
               // Enter sends; Shift+Enter adds a new line.
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {

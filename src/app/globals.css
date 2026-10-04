@@ -35,6 +35,7 @@
   --animate-pop: pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-drift: drift 18s ease-in-out infinite alternate;
   --animate-shimmer: shimmer 3s linear infinite;
+  --animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
 
   @keyframes fade-up {
     from { opacity: 0; transform: translateY(10px); }
@@ -56,6 +57,10 @@
   @keyframes shimmer {
     from { background-position: 0% 50%; }
     to { background-position: 200% 50%; }
+  }
+  @keyframes typing-dot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-3px); opacity: 1; }
   }
 }
 
