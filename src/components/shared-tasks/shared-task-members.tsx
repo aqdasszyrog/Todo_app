@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { XIcon } from "@/components/ui/icons";
 import { personLabel, type MemberRole, type SharedTaskPerson } from "@/lib/shared-tasks";
 import { EmailInviteField } from "./email-invite-field";
+import { useSharedTasks } from "./shared-tasks-provider";
 
 const ROLE_LABEL: Record<MemberRole, string> = {
   owner: "Owner",
@@ -23,6 +24,7 @@ type Props = {
 // Member list for one shared task. Owners can invite and remove people;
 // members only see the list.
 export function SharedTaskMembers({ taskId, people, userId, isOwner }: Props) {
+  const { dispatch } = useSharedTasks();
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -33,12 +35,14 @@ export function SharedTaskMembers({ taskId, people, userId, isOwner }: Props) {
     startTransition(async () => {
       const result = await removeSharedTaskMember(taskId, person.user_id);
       if (result.error) setError(result.error);
+      else dispatch({ type: "people", id: taskId, people: people.filter((p) => p.user_id !== person.user_id) });
       setRemovingId(null);
     });
   }
 
   async function invite(email: string) {
     const result = await inviteToSharedTask(taskId, email);
+    if (result.people) dispatch({ type: "people", id: taskId, people: result.people });
     return result.error ?? null;
   }
 

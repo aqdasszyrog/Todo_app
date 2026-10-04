@@ -6,13 +6,15 @@ import { respondToInvite } from "@/actions/notifications";
 import { Avatar } from "@/components/ui/avatar";
 import { SpinnerIcon } from "@/components/ui/icons";
 import { timeAgo } from "@/lib/dates";
-import type { AppNotification } from "@/lib/notifications";
+import type { AppNotification, MemberStatus } from "@/lib/notifications";
 
 type Props = {
   notification: AppNotification;
   highlighted: boolean;
   /** Called when a link inside is followed, so the panel can close. */
   onNavigate: () => void;
+  /** Called once an invite is accepted or declined. */
+  onAnswered: (taskId: number, status: MemberStatus) => void;
 };
 
 const VERB: Record<AppNotification["type"], string> = {
@@ -27,7 +29,7 @@ function verbFor(n: AppNotification) {
   return VERB[n.type];
 }
 
-export function NotificationItem({ notification: n, highlighted, onNavigate }: Props) {
+export function NotificationItem({ notification: n, highlighted, onNavigate, onAnswered }: Props) {
   const [pending, startTransition] = useTransition();
   const [answer, setAnswer] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +45,8 @@ export function NotificationItem({ notification: n, highlighted, onNavigate }: P
       if (result.error) {
         setError(result.error);
         setAnswer(null);
+      } else {
+        onAnswered(n.shared_task_id!, accept ? "accepted" : "declined");
       }
     });
   }

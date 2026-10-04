@@ -8,7 +8,6 @@ import { TaskOverview } from "./task-overview";
 import { TaskPagination } from "./task-pagination";
 
 type Props = {
-  userId: string;
   displayName: string;
   filters: Filters;
   /** The current page of tasks matching the filters. */
@@ -30,12 +29,12 @@ function subtitleFor(summary: TaskSummary | null) {
   return `${open} open task${open === 1 ? "" : "s"}${inProgress}.`;
 }
 
-export function TasksDashboard({ userId, displayName, filters, tasks, total, summary, loadFailed }: Props) {
+export function TasksDashboard({ displayName, filters, tasks, total, summary, loadFailed }: Props) {
   const firstName = displayName.split(" ")[0];
 
   return (
     <>
-      <RealtimeTasks userId={userId} taskIds={tasks.map((t) => t.id)} />
+      <RealtimeTasks />
 
       <div className="animate-fade-up mb-6 sm:mb-8">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

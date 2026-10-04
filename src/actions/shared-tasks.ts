@@ -1,8 +1,16 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getAuthedClient, SIGNED_OUT, type ActionResult } from "@/lib/actions";
-import { MAX_INVITES, type FoundUser } from "@/lib/shared-tasks";
+import {
+  fetchSharedTasks,
+  MAX_INVITES,
+  MAX_MEMBERS,
+  SHARED_TASK_COLUMNS,
+  type FoundUser,
+  type SharedTask,
+  type SharedTaskFields,
+  type SharedTaskPerson,
+} from "@/lib/shared-tasks";
 import { DEFAULT_PRIORITY, type Priority, type TaskChangesInput } from "@/lib/tasks";
 import {
   isInvalid,
@@ -14,6 +22,11 @@ import {
 } from "@/lib/validation";
 import { logError } from "@/lib/log";
 
+// These actions don't revalidate /shared. Each returns what changed so the
+// caller's list updates at once, and the database broadcasts the same change
+// to everyone else on the task (011_scalable_realtime.sql). Re-rendering the
+// page for every member on every change is what this avoids.
+
 // Postgres error codes raised by the functions in 007_shared_tasks.sql.
 const NOT_ALLOWED = "42501";
 const NOT_FOUND = "P0002";
@@ -23,6 +36,7 @@ const INVITE_MESSAGE: Record<string, string> = {
   self: "That's you. You're already the owner.",
   already_member: "They're already a member of this task.",
   already_invited: "They've already been invited.",
+  full: `A task can have up to ${MAX_MEMBERS} people.`,
 };
 
 /** Checks that an email belongs to a user, for the invite field. */
@@ -39,7 +53,7 @@ export async function findUserByEmail(email: string): Promise<ActionResult & { u
     return { error: "Couldn't check that email. Try again." };
   }
 
-  const user = (data as FoundUser[])[0];
+  const user = data[0];
   if (!user) return { error: INVITE_MESSAGE.not_found };
   if (user.id === session.userId) return { error: INVITE_MESSAGE.self };
   return { user };
@@ -50,7 +64,7 @@ export async function createSharedTask(input: {
   priority?: Priority;
   dueDate?: string | null;
   emails: string[];
-}): Promise<ActionResult> {
+}): Promise<ActionResult & { task?: SharedTask }> {
   const session = await getAuthedClient();
   if (!session) return SIGNED_OUT;
 
@@ -75,7 +89,7 @@ export async function createSharedTask(input: {
   if (emails.size > MAX_INVITES) return { error: `You can invite up to ${MAX_INVITES} people.` };
 
   // One transaction: if any email isn't a user, nothing is created.
-  const { error } = await session.supabase.rpc("create_shared_task", {
+  const { data: taskId, error } = await session.supabase.rpc("create_shared_task", {
     p_title: title,
     p_priority: priority,
     p_due_date: dueDate,
@@ -88,11 +102,13 @@ export async function createSharedTask(input: {
     return { error: "Couldn't create the shared task. Try again." };
   }
 
-  revalidatePath("/shared");
-  return {};
+  return { task: await loadTask(session.supabase, taskId) };
 }
 
-export async function inviteToSharedTask(taskId: number, email: string): Promise<ActionResult> {
+export async function inviteToSharedTask(
+  taskId: number,
+  email: string,
+): Promise<ActionResult & { people?: SharedTaskPerson[] }> {
   const session = await getAuthedClient();
   if (!session) return SIGNED_OUT;
 
@@ -109,13 +125,15 @@ export async function inviteToSharedTask(taskId: number, email: string): Promise
     logError("invite_to_shared_task failed", error);
     return { error: "Couldn't send the invite. Try again." };
   }
-  if (data !== "invited") return { error: INVITE_MESSAGE[data as string] ?? "Couldn't send the invite." };
+  if (data !== "invited") return { error: INVITE_MESSAGE[data] ?? "Couldn't send the invite." };
 
-  revalidatePath("/shared");
-  return {};
+  return { people: (await loadTask(session.supabase, taskId))?.people };
 }
 
-export async function updateSharedTask(taskId: number, input: TaskChangesInput): Promise<ActionResult> {
+export async function updateSharedTask(
+  taskId: number,
+  input: TaskChangesInput,
+): Promise<ActionResult & { task?: SharedTaskFields }> {
   const session = await getAuthedClient();
   if (!session) return SIGNED_OUT;
 
@@ -128,17 +146,16 @@ export async function updateSharedTask(taskId: number, input: TaskChangesInput):
     .from("shared_tasks")
     .update(changes)
     .eq("id", taskId)
-    .select("id");
+    .select(SHARED_TASK_COLUMNS);
 
   if (error) {
     if (error.code === NOT_ALLOWED) return { error: "Only the owner can change that." };
     logError("updateSharedTask failed", error);
     return { error: "Couldn't save changes. Try again." };
   }
-  if (!data?.length) return { error: "Task not found." };
+  if (!data.length) return { error: "Task not found." };
 
-  revalidatePath("/shared");
-  return {};
+  return { task: data[0] };
 }
 
 export async function deleteSharedTask(taskId: number): Promise<ActionResult> {
@@ -156,9 +173,7 @@ export async function deleteSharedTask(taskId: number): Promise<ActionResult> {
     logError("deleteSharedTask failed", error);
     return { error: "Couldn't delete the task. Try again." };
   }
-  if (!data?.length) return { error: "Only the owner can delete this task." };
-
-  revalidatePath("/shared");
+  if (!data.length) return { error: "Only the owner can delete this task." };
   return {};
 }
 
@@ -178,8 +193,20 @@ export async function removeSharedTaskMember(taskId: number, memberId: string): 
     logError("removeSharedTaskMember failed", error);
     return { error: "Couldn't update the members. Try again." };
   }
-  if (!data?.length) return { error: "That person isn't on this task anymore." };
-
-  revalidatePath("/shared");
+  if (!data.length) return { error: "That person isn't on this task anymore." };
   return {};
+}
+
+/** The task as the list shows it. Undefined if it can't be read back. */
+async function loadTask(
+  supabase: NonNullable<Awaited<ReturnType<typeof getAuthedClient>>>["supabase"],
+  taskId: number,
+) {
+  try {
+    return (await fetchSharedTasks(supabase, { taskId }))[0];
+  } catch (error) {
+    // The change itself succeeded; the broadcast will still bring it in.
+    logError("loading shared task after change failed", error);
+    return undefined;
+  }
 }

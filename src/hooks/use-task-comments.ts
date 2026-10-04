@@ -1,20 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { COMMENTS_PAGE_SIZE, type TaskComment } from "@/lib/comments";
+import { COMMENTS_PAGE_SIZE, mergeComments, type TaskComment } from "@/lib/comments";
 import { createClient } from "@/lib/supabase/client";
-import { useRealtimeChannel } from "./use-realtime-channel";
+import { useRealtimeEvent } from "./use-realtime";
 
 // The chat is read from the browser rather than through Server Components:
-// messages arrive over Realtime and are merged into local state, so a new
-// message doesn't re-render the whole page. Reads go through
-// shared_task_comments_page(), which returns nothing unless the caller owns
-// the task or has accepted the invite. Writes still go through Server Actions.
-
-/** Oldest first, no duplicates (a message can arrive via our own send and Realtime). */
-function merge(current: TaskComment[], incoming: TaskComment[]) {
-  const byId = new Map(current.map((c) => [c.id, c]));
-  for (const comment of incoming) byId.set(comment.id, comment);
-  return [...byId.values()].sort((a, b) => a.id - b.id);
-}
+// new messages arrive as `comment` broadcasts that already carry the
+// author's name, and are merged into local state with no query at all.
+// Pages of history go through shared_task_comments_page(), which returns
+// nothing unless the caller owns the task or has accepted the invite.
+// Writes go through Server Actions.
 
 export function useTaskComments(taskId: number) {
   const supabase = useMemo(() => createClient(), []);
@@ -32,32 +26,19 @@ export function useTaskComments(taskId: number) {
         p_limit: COMMENTS_PAGE_SIZE,
       });
       if (error) throw error;
-      return data as TaskComment[];
+      return data;
     },
     [supabase, taskId],
   );
 
-  /** Fetches the latest page and merges it in: initial load and after Realtime events. */
-  const syncLatest = useCallback(async () => {
-    try {
-      const page = await fetchPage(null);
-      setComments((current) => merge(current, page));
-      setError(null);
-      return page;
-    } catch (err) {
-      console.error("Loading chat failed", err);
-      setError("Couldn't load messages.");
-      return null;
-    }
-  }, [fetchPage]);
-
-  // Initial load.
+  // Initial load. The user's channel is already open (it lives in the
+  // layout), so nothing sent from here on is missed.
   useEffect(() => {
     let cancelled = false;
     fetchPage(null)
       .then((page) => {
         if (cancelled) return;
-        setComments((current) => merge(current, page));
+        setComments((current) => mergeComments(current, page));
         setHasMore(page.length === COMMENTS_PAGE_SIZE);
       })
       .catch((err) => {
@@ -77,7 +58,7 @@ export function useTaskComments(taskId: number) {
     setLoadingMore(true);
     try {
       const page = await fetchPage(comments[0].id);
-      setComments((current) => merge(current, page));
+      setComments((current) => mergeComments(current, page));
       setHasMore(page.length === COMMENTS_PAGE_SIZE);
     } catch (err) {
       console.error("Loading earlier messages failed", err);
@@ -87,32 +68,27 @@ export function useTaskComments(taskId: number) {
     }
   }
 
-  /** Adds a message we just sent, before its Realtime echo arrives. */
+  /** Adds a message we just sent, before its broadcast arrives. */
   const addLocal = useCallback((comment: TaskComment) => {
-    setComments((current) => merge(current, [comment]));
+    setComments((current) => mergeComments(current, [comment]));
   }, []);
 
   const removeLocal = useCallback((id: number) => {
     setComments((current) => current.filter((c) => c.id !== id));
   }, []);
 
-  useRealtimeChannel(
-    `task_comments:${taskId}`,
-    (channel) =>
-      channel
-        // Payloads have no author name, so fetch the latest page instead
-        // (RLS already ensured we may see this task's messages).
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "shared_task_comments", filter: `task_id=eq.${taskId}` },
-          () => void syncLatest(),
-        )
-        // Delete events can't be filtered and only carry the id.
-        .on("postgres_changes", { event: "DELETE", schema: "public", table: "shared_task_comments" }, (payload) =>
-          removeLocal(payload.old.id as number),
-        ),
-    () => void syncLatest(),
-  );
+  useRealtimeEvent("comment", ({ comment }) => {
+    if (comment.task_id === taskId) addLocal(comment);
+  });
+  useRealtimeEvent("comment_deleted", ({ task_id, id }) => {
+    if (task_id === taskId) removeLocal(id);
+  });
+  // After a dropped connection, catch up on the latest page.
+  useRealtimeEvent("resync", () => {
+    fetchPage(null)
+      .then((page) => setComments((current) => mergeComments(current, page)))
+      .catch((err) => console.error("Reloading chat failed", err));
+  });
 
   return { comments, loading, error, hasMore, loadingMore, loadEarlier, addLocal, removeLocal };
 }

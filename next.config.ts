@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Lets phones on the same Wi-Fi use the dev server via the laptop's LAN IP.
-  // Update this if your IP changes (check with `hostname -I`).
-  allowedDevOrigins: ["10.56.154.228"],
+  // Lets other devices (e.g. a phone on the same Wi-Fi) use the dev server
+  // via this machine's LAN IP. Set DEV_ORIGINS in .env.local, comma-separated
+  // (find your IP with `hostname -I`).
+  allowedDevOrigins: process.env.DEV_ORIGINS?.split(",").map((origin) => origin.trim()).filter(Boolean),
 };
 
 export default nextConfig;

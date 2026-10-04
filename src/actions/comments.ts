@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getAuthedClient, SIGNED_OUT, type ActionResult } from "@/lib/actions";
 import type { TaskComment } from "@/lib/comments";
 import { logError } from "@/lib/log";
@@ -62,20 +61,18 @@ export async function markTaskChatRead(taskId: number): Promise<ActionResult> {
   const session = await getAuthedClient();
   if (!session) return SIGNED_OUT;
 
-  const { data, error } = await session.supabase
+  // The bell updates from the broadcast this triggers, so no revalidation.
+  const { error } = await session.supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("user_id", session.userId)
     .eq("shared_task_id", taskId)
     .eq("type", "task_comment")
-    .is("read_at", null)
-    .select("id");
+    .is("read_at", null);
 
   if (error) {
     logError("markTaskChatRead failed", error);
     return { error: "Couldn't update notifications." };
   }
-  // Only refresh the bell if something actually changed.
-  if (data.length) revalidatePath("/", "layout");
   return {};
 }

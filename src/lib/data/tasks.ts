@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PAGE_SIZE, type Sort, type TaskFilters } from "@/lib/task-filters";
-import { TASK_COLUMNS, type Task, type TaskSummary } from "@/lib/tasks";
+import { TASK_COLUMNS, type TaskSummary } from "@/lib/tasks";
 import { logError } from "@/lib/log";
 
 // Every sort ends with `id` so rows with equal values keep a stable order
@@ -41,8 +41,7 @@ export async function getTasksPage(filters: TaskFilters) {
 
   const { data, count, error } = await query
     .order("id", { ascending: false })
-    .range(from, from + PAGE_SIZE - 1)
-    .overrideTypes<Task[], { merge: false }>();
+    .range(from, from + PAGE_SIZE - 1);
 
   if (error) logError("getTasksPage failed", error);
   return { tasks: data ?? [], total: count ?? 0, error: !!error };

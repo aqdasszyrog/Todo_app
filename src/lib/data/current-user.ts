@@ -1,7 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { logError } from "@/lib/log";
-import type { Profile } from "@/lib/profile";
 import { checkAccount } from "@/lib/supabase/account";
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,8 +25,7 @@ export const getCurrentUser = cache(async () => {
       .from("profiles")
       .select(PROFILE_COLUMNS)
       .eq("id", userId)
-      .single()
-      .overrideTypes<Profile, { merge: false }>();
+      .single();
 
   // RLS limits this to the logged-in user's own row.
   let { data: profile, error } = await loadProfile();

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "rea
 import { deleteComment, markTaskChatRead, postComment } from "@/actions/comments";
 import { Avatar } from "@/components/ui/avatar";
 import { SpinnerIcon, TrashIcon } from "@/components/ui/icons";
+import { useRealtimeEvent } from "@/hooks/use-realtime";
 import { useTaskComments } from "@/hooks/use-task-comments";
 import { COMMENT_MAX_LENGTH, type TaskComment } from "@/lib/comments";
 import { localDateString } from "@/lib/dates";
@@ -61,12 +62,17 @@ export function TaskChat({ taskId, userId, isOwner, myName }: Props) {
     }
   }, [comments]);
 
-  // Viewing the chat counts as reading its notifications, including ones
-  // created by messages that arrive while it's open.
-  const latestFromOthers = comments.findLast((c) => c.author_id !== userId)?.id;
+  // Viewing the chat counts as reading its notifications: on opening, and
+  // whenever a message arriving while it's open creates or bumps one.
   useEffect(() => {
     void markTaskChatRead(taskId);
-  }, [taskId, latestFromOthers]);
+  }, [taskId]);
+
+  useRealtimeEvent("notifications", ({ upserts }) => {
+    if (upserts.some((n) => n.type === "task_comment" && n.shared_task_id === taskId && !n.read_at)) {
+      void markTaskChatRead(taskId);
+    }
+  });
 
   function send() {
     const body = draft.trim();

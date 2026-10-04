@@ -1,31 +1,22 @@
 "use client";
 
-import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
-import { markNotificationsRead } from "@/actions/notifications";
-import { BellIcon } from "@/components/ui/icons";
-import type { AppNotification } from "@/lib/notifications";
+import { useEffect, useRef, useState } from "react";
+import { BellIcon, SpinnerIcon } from "@/components/ui/icons";
+import { useNotifications } from "@/hooks/use-notifications";
 import { NotificationItem } from "./notification-item";
 
-type Props = { notifications: AppNotification[]; unreadCount: number };
-
-export function NotificationBell({ notifications, unreadCount }: Props) {
+export function NotificationBell() {
+  const { notifications, unreadCount, loaded, readAll, answerInvite } = useNotifications();
   const [open, setOpen] = useState(false);
   // Ids that were unread when the panel opened. Opening marks everything as
   // read, but we keep highlighting these until the panel closes.
   const [highlighted, setHighlighted] = useState<Set<number>>(new Set());
-  const [optimisticUnread, setOptimisticUnread] = useOptimistic(unreadCount);
-  const [, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
 
   function openPanel() {
     setOpen(true);
     setHighlighted(new Set(notifications.filter((n) => !n.read_at).map((n) => n.id)));
-    if (unreadCount > 0) {
-      startTransition(async () => {
-        setOptimisticUnread(0);
-        await markNotificationsRead();
-      });
-    }
+    if (unreadCount > 0) void readAll();
   }
 
   // Close on outside click or Escape, like any other popover.
@@ -43,7 +34,7 @@ export function NotificationBell({ notifications, unreadCount }: Props) {
     };
   }, [open]);
 
-  const badge = optimisticUnread > 9 ? "9+" : String(optimisticUnread);
+  const badge = unreadCount > 9 ? "9+" : String(unreadCount);
 
   return (
     <div ref={rootRef} className="relative">
@@ -53,12 +44,12 @@ export function NotificationBell({ notifications, unreadCount }: Props) {
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={
-          optimisticUnread ? `Notifications, ${optimisticUnread} unread` : "Notifications"
+          unreadCount ? `Notifications, ${unreadCount} unread` : "Notifications"
         }
         className="relative grid size-9 place-items-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-fg active:scale-90"
       >
         <BellIcon />
-        {optimisticUnread > 0 && (
+        {unreadCount > 0 && (
           <span className="animate-pop absolute -top-0.5 -right-0.5 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-500 px-1 text-[10px] font-bold text-white tabular-nums ring-2 ring-bg">
             {badge}
           </span>
@@ -75,7 +66,11 @@ export function NotificationBell({ notifications, unreadCount }: Props) {
             <h2 className="text-sm font-semibold">Notifications</h2>
           </div>
 
-          {notifications.length === 0 ? (
+          {!loaded ? (
+            <div className="grid place-items-center py-10 text-muted">
+              <SpinnerIcon className="size-5" />
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="px-6 py-10 text-center">
               <BellIcon className="mx-auto size-6 text-muted" />
               <p className="mt-2 text-sm text-muted">You&apos;re all caught up.</p>
@@ -88,6 +83,7 @@ export function NotificationBell({ notifications, unreadCount }: Props) {
                   notification={n}
                   highlighted={highlighted.has(n.id)}
                   onNavigate={() => setOpen(false)}
+                  onAnswered={answerInvite}
                 />
               ))}
             </ul>

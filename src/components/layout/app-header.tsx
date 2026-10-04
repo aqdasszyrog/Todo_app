@@ -2,16 +2,9 @@ import Link from "next/link";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Avatar } from "@/components/ui/avatar";
 import { Logo } from "@/components/ui/logo";
-import type { AppNotification } from "@/lib/notifications";
 import { SidebarToggle } from "./sidebar-toggle";
 
-type Props = {
-  displayName: string;
-  notifications: AppNotification[];
-  unreadCount: number;
-};
-
-export function AppHeader({ displayName, notifications, unreadCount }: Props) {
+export function AppHeader({ displayName }: { displayName: string }) {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-bg/60 backdrop-blur-xl">
       <div className="flex h-16 w-full items-center justify-between px-3 sm:px-4">
@@ -24,7 +17,7 @@ export function AppHeader({ displayName, notifications, unreadCount }: Props) {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-3">
-          <NotificationBell notifications={notifications} unreadCount={unreadCount} />
+          <NotificationBell />
           <Link
             href="/profile"
             title="Your profile"

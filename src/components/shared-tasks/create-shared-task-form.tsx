@@ -16,10 +16,12 @@ import {
   type Priority,
 } from "@/lib/tasks";
 import { EmailInviteField } from "./email-invite-field";
+import { useSharedTasks } from "./shared-tasks-provider";
 
 const PRIORITY_OPTIONS = PRIORITY.map((p) => ({ value: p, label: `${PRIORITY_LABEL[p]} priority` }));
 
 export function CreateSharedTaskForm() {
+  const { dispatch } = useSharedTasks();
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<Priority>(DEFAULT_PRIORITY);
   const [dueDate, setDueDate] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export function CreateSharedTaskForm() {
       if (result.error) {
         setError(result.error);
       } else {
+        if (result.task) dispatch({ type: "upsert", task: result.task });
         setTitle("");
         setPriority(DEFAULT_PRIORITY);
         setDueDate(null);

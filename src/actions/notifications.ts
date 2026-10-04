@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getAuthedClient, SIGNED_OUT, type ActionResult } from "@/lib/actions";
 import { logError } from "@/lib/log";
 
@@ -19,8 +18,8 @@ export async function respondToInvite(taskId: number, accept: boolean): Promise<
     return { error: "Couldn't respond to the invite. Try again." };
   }
 
-  // The bell lives in the layout, and an accepted task appears on /shared.
-  revalidatePath("/", "layout");
+  // No revalidation: the bell and the /shared list are updated by the
+  // `membership` and `notifications` broadcasts this change triggers.
   return {};
 }
 
@@ -38,7 +37,5 @@ export async function markNotificationsRead(): Promise<ActionResult> {
     logError("markNotificationsRead failed", error);
     return { error: "Couldn't update notifications." };
   }
-
-  revalidatePath("/", "layout");
   return {};
 }

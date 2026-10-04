@@ -8,7 +8,7 @@ import { PAGE_SIZE, parseTaskFilters, tasksHref } from "@/lib/task-filters";
 export default async function Home({ searchParams }: PageProps<"/">) {
   const filters = parseTaskFilters(await searchParams);
 
-  const [{ userId, profile }, page, summary] = await Promise.all([
+  const [{ profile }, page, summary] = await Promise.all([
     getCurrentUser(),
     getTasksPage(filters),
     getTaskSummary(),
@@ -22,7 +22,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   return (
     <TasksDashboard
-      userId={userId}
       displayName={displayNameOf(profile)}
       filters={filters}
       tasks={page.tasks}

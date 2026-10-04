@@ -10,6 +10,7 @@ import {
   validateTaskChanges,
   validateTitle,
 } from "@/lib/validation";
+import { logError } from "@/lib/log";
 
 export async function addTask(input: {
   title: string;
@@ -33,7 +34,10 @@ export async function addTask(input: {
   const { error } = await supabase
     .from("user_tasks")
     .insert({ title, priority, due_date: dueDate });
-  if (error) return { error: "Couldn't add the task. Try again." };
+  if (error) {
+    logError("addTask failed", error);
+    return { error: "Couldn't add the task. Try again." };
+  }
 
   revalidatePath("/");
   return {};
@@ -54,7 +58,10 @@ export async function updateTask(id: number, input: TaskChangesInput): Promise<A
     .eq("id", id)
     .select("id");
 
-  if (error) return { error: "Couldn't save changes. Try again." };
+  if (error) {
+    logError("updateTask failed", error);
+    return { error: "Couldn't save changes. Try again." };
+  }
   // RLS hides other users' rows, so a foreign id simply matches nothing.
   if (!data?.length) return { error: "Task not found." };
 
@@ -73,7 +80,10 @@ export async function deleteTask(id: number): Promise<ActionResult> {
     .eq("id", id)
     .select("id");
 
-  if (error) return { error: "Couldn't delete the task. Try again." };
+  if (error) {
+    logError("deleteTask failed", error);
+    return { error: "Couldn't delete the task. Try again." };
+  }
   if (!data?.length) return { error: "Task not found." };
 
   revalidatePath("/");

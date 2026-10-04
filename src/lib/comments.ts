@@ -13,3 +13,13 @@ export type TaskComment = {
   body: string;
   created_at: string;
 };
+
+/**
+ * Oldest first, no duplicates: the same message can arrive from our own
+ * send, from the broadcast, and from a page load.
+ */
+export function mergeComments(current: TaskComment[], incoming: TaskComment[]) {
+  const byId = new Map(current.map((c) => [c.id, c]));
+  for (const comment of incoming) byId.set(comment.id, comment);
+  return [...byId.values()].sort((a, b) => a.id - b.id);
+}

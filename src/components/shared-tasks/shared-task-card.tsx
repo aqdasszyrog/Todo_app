@@ -23,6 +23,7 @@ import {
   type TaskChangesInput,
 } from "@/lib/tasks";
 import { SharedTaskMembers } from "./shared-task-members";
+import { useSharedTasks } from "./shared-tasks-provider";
 import { TaskChat } from "./task-chat";
 
 type Editable = Pick<Task, "progress" | "priority" | "due_date">;
@@ -33,6 +34,7 @@ const PRIORITY_OPTIONS = PRIORITY.map((p) => ({ value: p, label: `${PRIORITY_LAB
 const OWNER_ONLY = "Only the owner can change this";
 
 export function SharedTaskCard({ task, userId, index }: { task: SharedTask; userId: string; index: number }) {
+  const { dispatch } = useSharedTasks();
   const isOwner = task.owner_id === userId;
   const owner = task.people.find((p) => p.role === "owner");
   const joined = task.people.filter((p) => p.role !== "invited");
@@ -97,22 +99,31 @@ export function SharedTaskCard({ task, userId, index }: { task: SharedTask; user
     });
   }
 
+  // Results are applied to the list inside the transition, so the optimistic
+  // value hands over to the saved one without flicking back in between.
   function change(fields: Partial<Editable>) {
     run(async () => {
       setOptimistic(fields);
       const { due_date, ...rest } = fields;
-      return updateSharedTask(task.id, due_date === undefined ? rest : { ...rest, dueDate: due_date });
+      const result = await updateSharedTask(task.id, due_date === undefined ? rest : { ...rest, dueDate: due_date });
+      if (result.task) dispatch({ type: "upsert", task: result.task });
+      return result;
     });
   }
 
   async function saveDetails(changes: TaskChangesInput) {
     const result = await updateSharedTask(task.id, changes);
+    if (result.task) dispatch({ type: "upsert", task: result.task });
     return result.error ?? null;
   }
 
   function confirmDestructive() {
     setConfirming(false);
-    run(() => (isOwner ? deleteSharedTask(task.id) : removeSharedTaskMember(task.id, userId)));
+    run(async () => {
+      const result = isOwner ? await deleteSharedTask(task.id) : await removeSharedTaskMember(task.id, userId);
+      if (!result.error) dispatch({ type: "remove", id: task.id });
+      return result;
+    });
   }
 
   const isDone = optimistic.progress === "completed";
