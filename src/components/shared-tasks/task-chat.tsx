@@ -38,18 +38,24 @@ function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
-// Three bouncing dots in a bubble, like the other person's messages.
+// Avatars shown for a group of typists; the label names the rest.
+const MAX_TYPING_AVATARS = 3;
+
+// Three bouncing dots in a bubble, like the other person's messages. Any
+// number of typists fits one line: avatars are capped and the label
+// truncates, so the list doesn't jump as people start and stop.
 function TypingIndicator({ typists }: { typists: Typist[] }) {
   const label = typingLabel(typists);
   return (
     <div aria-hidden className="mt-3 flex animate-fade-in items-end gap-2.5">
-      <div className="w-7 shrink-0">
-        <Avatar name={typists[0].name} size="sm" />
+      <div className="flex min-w-7 shrink-0 -space-x-2">
+        {typists.slice(0, MAX_TYPING_AVATARS).map((t) => (
+          <Avatar key={t.userId} name={t.name} size="sm" />
+        ))}
       </div>
       <div className="flex min-w-0 flex-col items-start">
-        <p className="mb-1 truncate px-1 text-xs text-muted">{label}</p>
-        <span className="flex h-9 items-center gap-1 rounded-2xl rounded-tl-md bg-surface-2 px-3.5 ring-1 ring-line"
-        >
+        <p className="mb-1 max-w-full truncate px-1 text-xs text-muted">{label}</p>
+        <span className="flex h-9 items-center gap-1 rounded-2xl rounded-tl-md bg-surface-2 px-3.5 ring-1 ring-line">
           {[0, 150, 300].map((delay) => (
             <span
               key={delay}
