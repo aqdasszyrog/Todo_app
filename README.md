@@ -4,6 +4,7 @@ Personal and shared to-do lists with live updates and a chat on every shared tas
 
 - [docs/auth-flow.md](docs/auth-flow.md): how login and sessions work
 - [docs/realtime.md](docs/realtime.md): how live updates reach the right people
+- [docs/billing.md](docs/billing.md): plans and Stripe payments
 
 ## Getting started
 
@@ -80,6 +81,12 @@ npx supabase migration repair --status applied 001 002 003 004 005 006 007 008 0
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard → Project Settings → API |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same page. Safe in the browser; RLS protects the data. |
+| `SUPABASE_SECRET_KEY` | Same page, "Secret keys". **Server-only.** Writes a user's plan after Stripe confirms payment |
+| `STRIPE_SECRET_KEY` | Stripe Dashboard → Developers → API keys |
+| `STRIPE_PREMIUM_PRICE_ID` | The Premium product's recurring price (`price_…`) |
+| `STRIPE_WEBHOOK_SECRET` | The webhook endpoint's signing secret (`whsec_…`) |
 | `DEV_ORIGINS` | Optional, dev only: comma-separated LAN IPs allowed to use `npm run dev` (e.g. your phone) |
+
+The Stripe variables are optional until you sell Premium: without them the Plans page shows Premium as unavailable.
 
 Missing required variables fail at startup with a clear message (`src/lib/env.ts`).

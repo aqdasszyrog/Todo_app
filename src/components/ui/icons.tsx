@@ -148,6 +148,15 @@ export function UserIcon({ className = "size-4" }: IconProps) {
   );
 }
 
+export function SparklesIcon({ className = "size-4" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M9.9 4.6 11 8a2 2 0 0 0 1.3 1.3l3.4 1.1-3.4 1.1A2 2 0 0 0 11 12.8l-1.1 3.4-1.1-3.4a2 2 0 0 0-1.3-1.3L4 10.4l3.4-1.1A2 2 0 0 0 8.8 8Z" />
+      <path d="M18 14v4M16 16h4M17 3v3M15.5 4.5h3" />
+    </svg>
+  );
+}
+
 export function SpinnerIcon({ className = "size-4" }: IconProps) {
   return (
     <svg {...base} className={`${className} animate-spin`}>

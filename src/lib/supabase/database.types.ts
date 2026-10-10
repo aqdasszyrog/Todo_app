@@ -83,6 +83,12 @@ export type Database = {
           id: string;
           name: string | null;
           phone: string | null;
+          plan: string;
+          plan_cancel_at_period_end: boolean;
+          plan_renews_at: string | null;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          subscription_status: string | null;
         };
         Insert: {
           created_at?: string;
@@ -90,6 +96,12 @@ export type Database = {
           id: string;
           name?: string | null;
           phone?: string | null;
+          plan?: string;
+          plan_cancel_at_period_end?: boolean;
+          plan_renews_at?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          subscription_status?: string | null;
         };
         Update: {
           created_at?: string;
@@ -97,6 +109,12 @@ export type Database = {
           id?: string;
           name?: string | null;
           phone?: string | null;
+          plan?: string;
+          plan_cancel_at_period_end?: boolean;
+          plan_renews_at?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          subscription_status?: string | null;
         };
         Relationships: [];
       };

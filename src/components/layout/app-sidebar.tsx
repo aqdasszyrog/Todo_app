@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   DashboardIcon,
   LogoutIcon,
+  SparklesIcon,
   SpinnerIcon,
   UserIcon,
   UsersIcon,
@@ -16,6 +17,7 @@ import { useSidebar } from "./sidebar-provider";
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", Icon: DashboardIcon },
   { href: "/shared", label: "Shared tasks", Icon: UsersIcon },
+  { href: "/plans", label: "Plans", Icon: SparklesIcon },
   { href: "/profile", label: "Profile", Icon: UserIcon },
 ] as const;
 

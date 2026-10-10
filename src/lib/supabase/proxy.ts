@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/env";
 import type { Database } from "./database.types";
 
-const PUBLIC_PATHS = ["/login", "/auth", "/privacy"];
+// The Stripe webhook has no session: it checks Stripe's signature instead.
+const PUBLIC_PATHS = ["/login", "/auth", "/privacy", "/api/stripe/webhook"];
 
 // Runs before every matched request: refreshes the Supabase session cookie
 // and redirects logged-out users to /login.
