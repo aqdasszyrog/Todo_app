@@ -60,7 +60,9 @@ export function NotificationBell() {
         <div
           role="dialog"
           aria-label="Notifications"
-          className="animate-fade-in absolute top-full right-0 z-30 mt-2 w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-line-strong bg-[#0d0e14]/95 shadow-2xl shadow-black/50 backdrop-blur-xl"
+          // On mobile the bell isn't at the screen edge, so anchoring to it
+          // pushes the panel off the left side; pin it to the viewport instead.
+          className="animate-fade-in fixed inset-x-3 top-[4.5rem] z-30 overflow-hidden sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-[24rem] rounded-2xl border border-line-strong bg-[#0d0e14]/95 shadow-2xl shadow-black/50 backdrop-blur-xl"
         >
           <div className="border-b border-line px-4 py-3">
             <h2 className="text-sm font-semibold">Notifications</h2>

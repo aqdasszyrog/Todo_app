@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Todo",
   description: "Simple todo app with Next.js and Supabase",
+  applicationName: "Todo",
+  // iOS ignores the manifest icons and needs these to run full-screen once
+  // added to the home screen.
+  appleWebApp: { capable: true, title: "Todo", statusBarStyle: "black" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
@@ -36,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="absolute inset-0 bg-[radial-gradient(rgb(255_255_255/0.05)_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_75%)]" />
         </div>
         {children}
+        <ServiceWorkerRegister />
       </body>
     </html>
   );
